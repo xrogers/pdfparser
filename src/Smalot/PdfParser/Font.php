@@ -346,6 +346,7 @@ class Font extends Object
         $words         = array();
         $unicode       = false;
         $font_space    = $this->getFontSpaceLimit();
+		$dontDecode    = false;
 
         foreach ($commands as $command) {
             switch ($command[Object::TYPE]) {
@@ -360,6 +361,18 @@ class Font extends Object
                     $text = self::decodeHexadecimal('<' . $command[Object::COMMAND] . '>');
                     $unicode = true;
                     break;
+
+				case '(':
+					/**
+					 * Decode ASIS from iso8859-2 to utf8 - solves problem with polish characters
+					 * Correct fix would use: http://partners.adobe.com/public/developer/en/opentype/glyphlist.txt
+					 * 	during mapping process
+					 * @see http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/pdf/pdfs/PDF32000_2008.pdf / 9.10.2 / b)
+					 */
+					$text = @iconv('ISO-8859-2', 'UTF-8//IGNORE', $command[Object::COMMAND]);
+					$unicode = true;
+					$dontDecode = true;
+					break;
 
                 default:
                     // Decode octal (if necessary).
@@ -381,10 +394,12 @@ class Font extends Object
             }
         }
 
-        foreach ($words as &$word) {
-            $loop_unicode = $unicode;
-            $word         = $this->decodeContent($word, $loop_unicode);
-        }
+		if (!$dontDecode) {
+			foreach ($words as &$word) {
+				$loop_unicode = $unicode;
+				$word         = $this->decodeContent($word, $loop_unicode);
+			}
+		}
 
         return implode(' ', $words);
     }
